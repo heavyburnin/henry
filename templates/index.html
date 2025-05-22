@@ -28,16 +28,21 @@
             max-width: 600px;
             box-shadow: 0 0 20px rgba(0,0,0,0.4);
             margin-top: 1rem;
+            display: flex;
+            flex-direction: column;
         }
 
         .message-block {
-            margin-bottom: 1.5rem;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            overflow-y: auto;
+            max-height: 70vh;
         }
 
         .user-msg, .bot-msg {
             padding: 12px 16px;
             border-radius: 10px;
-            margin: 6px 0;
             line-height: 1.4;
             max-width: 100%;
             word-wrap: break-word;
@@ -90,7 +95,7 @@
             width: 28px;
             height: 28px;
             animation: spin 0.9s linear infinite;
-            margin: 20px auto;
+            margin: 10px auto;
             display: none;
         }
 
@@ -104,14 +109,9 @@
     <h1>Talk to Henry</h1>
 
     <div class="chat-container">
-        {% if request.method == 'POST' %}
-        <div class="message-block">
-            <div class="user-msg">You: {{ request.form["message"] }}</div>
-            <div class="bot-msg">Henry: {{ reply }}</div>
-        </div>
-        {% endif %}
+        <div id="chat" class="message-block"></div>
 
-        <form method="POST" onsubmit="showSpinner()">
+        <form id="chat-form">
             <input type="text" id="message" name="message" placeholder="Say something..." required>
             <button type="submit">Send</button>
         </form>
@@ -120,8 +120,39 @@
     </div>
 
     <script>
-        function showSpinner() {
-            document.getElementById("spinner").style.display = "block";
+        const form = document.getElementById('chat-form');
+        const input = document.getElementById('message');
+        const chat = document.getElementById('chat');
+        const spinner = document.getElementById('spinner');
+
+        form.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const userText = input.value.trim();
+            if (!userText) return;
+
+            // Show user message
+            appendMessage('user', userText);
+            input.value = '';
+            spinner.style.display = 'block';
+
+            // Send to backend
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: userText })
+            });
+
+            const data = await response.json();
+            appendMessage('bot', data.reply);
+            spinner.style.display = 'none';
+        });
+
+        function appendMessage(sender, text) {
+            const div = document.createElement('div');
+            div.className = sender === 'user' ? 'user-msg' : 'bot-msg';
+            div.innerText = (sender === 'user' ? 'You: ' : 'Henry: ') + text;
+            chat.appendChild(div);
+            chat.scrollTop = chat.scrollHeight;
         }
     </script>
 </body>

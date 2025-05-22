@@ -1,0 +1,32 @@
+from flask import Flask, request, render_template, jsonify
+from model_runner import model_runner
+from concurrent.futures import ThreadPoolExecutor
+
+app = Flask(__name__)
+model = model_runner()
+executor = ThreadPoolExecutor(max_workers=4)  # adjust to available CPU cores
+
+@app.route("/chat", methods=["GET", "POST"])
+def chat_ui():
+    reply = ""
+    if request.method == "POST":
+        user_input = request.form.get("message", "")
+        future = executor.submit(model.infer, user_input)
+        reply = future.result()
+    return render_template("index.html", reply=reply)
+
+@app.route("/chat/api", methods=["POST"])
+def chat_api():
+    if request.is_json:
+        data = request.get_json()
+        if not data or "message" not in data:
+            return jsonify({"error": "Missing 'message' in JSON"}), 400
+        user_input = data["message"]
+        future = executor.submit(model.infer, user_input)
+        reply = future.result()
+        return jsonify({"response": reply})
+    return jsonify({"error": "Expected application/json POST"}), 400
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
+
