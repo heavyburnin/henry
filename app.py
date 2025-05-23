@@ -1,4 +1,4 @@
-from flask import Flask, request, render_template, jsonify, session
+from flask import Flask, request, render_template, jsonify, session, Response, stream_with_context
 from model_runner import model_runner
 from concurrent.futures import ThreadPoolExecutor
 from flask_session import Session
@@ -42,6 +42,19 @@ def chat_post():
     else:
         return render_template("index.html", history=history)
 
+@app.route("/chat/stream", methods=["GET"])
+def chat_stream():
+    user_input = request.args.get("message", "")
+    if not user_input:
+        return "Missing message", 400
+
+    def generate():
+        for chunk in model.infer_stream(user_input):
+            yield f"data: {chunk}\n\n"
+        yield "event: end\ndata: end\n\n"
+
+    return Response(stream_with_context(generate()), content_type='text/event-stream')
+
 @app.route("/chat/api", methods=["POST"])
 def chat_api():
     if request.is_json:
@@ -54,6 +67,7 @@ def chat_api():
         return jsonify({"response": reply})
     return jsonify({"error": "Expected application/json POST"}), 400
 
-if __name__ == "__main__":
-    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
+# switched to gunicorn
+#if __name__ == "__main__":
+#    app.run(host="0.0.0.0", port=5000, debug=True, use_reloader=False)
 
